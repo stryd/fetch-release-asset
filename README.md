@@ -9,8 +9,8 @@ Basic:
 steps: 
   uses: stryd/fetch-release-asset@v1
   with:  
-    access_token: 'your-access-token'
-    repo: 'owner/repo'
-    version: 'latest'
-    asset_name: 'archive.tar.gz'
+    access_token: ${{ secrets.GH_TOKEN }}
+    repo: "owner/repo"
+    version: "latest"
+    asset_name: "archive.tar.gz"
 ```
