@@ -1,0 +1,26 @@
+name: 'fetch-release-asset'
+description: 'Fetch an asset file from a private repo release'
+inputs:
+  access_token:
+    description:
+      'A GitHub API access token, with repo & read:package permissions granted
+      and access to the repo name provided in the dependency parameter'
+    required: true
+  repo:
+    description:
+      'The GitHub repo to fetch the asset from. Should be in the form
+      `owner/repo`'
+    required: true
+  version:
+    description: 'The release version for which to find an asset'
+    required: true
+  asset_name:
+    description: 'The filename name of the saved release artifact to copy'
+    required: true
+  save_as:
+    description:
+      'The relative file path to save the asset file to. Defaults to
+      `./${asset_name}'
+runs:
+  using: 'node12'
+  main: 'dist/index.js'

@@ -1,0 +1,32 @@
+{
+  "name": "@stryd/fetch-release-asset",
+  "version": "1.0.0",
+  "description": "",
+  "main": "lib/index.js",
+  "scripts": {
+    "lint": "tslint -c tslint.json 'src/**/*.ts'",
+    "build": "rimraf lib && rimraf dist && tsc && ncc build",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "format": "prettier --ignore-path .gitignore --write \"**/*.+(js|ts|jsx|tsx|json)\""
+  },
+  "author": "Matt Wilcox",
+  "license": "UNLICENSED",
+  "devDependencies": {
+    "@types/jest": "^26.0.3",
+    "@types/node": "^14.0.14",
+    "jest-circus": "^26.1.0",
+    "prettier": "^2.0.5",
+    "rimraf": "^3.0.2",
+    "ts-jest": "^26.1.1",
+    "tslint": "^6.1.2",
+    "tslint-config-prettier": "^1.18.0",
+    "@zeit/ncc": "^0.22.3",
+    "jest": "^26.1.0",
+    "typescript": "^3.9.6"
+  },
+  "dependencies": {
+    "@actions/core": "^1.2.4",
+    "axios": "^0.19.2"
+  }
+}

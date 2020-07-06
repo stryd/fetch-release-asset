@@ -1,0 +1,23 @@
+{
+  "defaultSeverity": "error",
+  "extends": ["tslint:recommended", "tslint-config-prettier"],
+  "linterOptions": {
+    "exclude": [
+      "node_modules",
+      "config/**/*{ts,tsx,js}",
+      "coverage/lcov-report/**/*{ts,tsx,js}"
+    ]
+  },
+  "jsRules": {},
+  "rules": {
+    "member-ordering": false,
+    "curly": false,
+    "ordered-imports": false,
+    "object-literal-sort-keys": false,
+    "max-classes-per-file": false,
+    "variable-name": false,
+    "no-useless-escape": false,
+    "no-bitwise": false
+  },
+  "rulesDirectory": []
+}
