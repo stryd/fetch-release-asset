@@ -13,6 +13,7 @@ const run = async (): Promise<void> => {
     let filePath = core.getInput('save_as');
 
     // set default save location
+    core.debug(`current working directory: ${process.cwd()}`);
     if (!filePath) {
       filePath = path.join(__dirname, assetName);
     } else {

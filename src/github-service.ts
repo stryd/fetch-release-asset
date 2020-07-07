@@ -1,4 +1,5 @@
 import axios from 'axios';
+import core from '@actions/core';
 
 export interface IReleaseRequestParams {
   token: string;
@@ -60,10 +61,14 @@ export const fetchAsset = async (params: IAssetRequestParams) => {
   // retrieve the S3 location of the asset from the redirect headers
   const { location } = fileRedirectRes.headers;
 
+  core.debug(`Got asset redirect to ${location}`);
+
   const fileRes = await axios.get<ArrayBuffer>(location, {
     headers: { Accept: 'application/octet-stream' },
     responseType: 'arraybuffer'
   });
+
+  core.debug(`asset request status: ${fileRes.status}`);
 
   return fileRes.data;
 };
@@ -89,6 +94,8 @@ export const fetchAssetFromRelease = async (params: IReleaseRequestParams) => {
   if (!asset) {
     throw new Error(`Could not find ${assetName} in ${repo}@${version}`);
   }
+
+  core.debug(`Fetching asset at ${asset.url}`);
 
   return await fetchAsset({ token, url: asset.url });
 };

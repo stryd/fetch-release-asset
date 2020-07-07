@@ -3,6 +3,10 @@ import axios, { AxiosResponse } from 'axios';
 import { mockInputs } from './__mocks__/mock-inputs';
 
 jest.mock('axios');
+jest.mock('@actions/core', () => ({
+  debug: jest.fn(),
+  info: jest.fn()
+}));
 
 afterEach(() => jest.clearAllMocks());
 
