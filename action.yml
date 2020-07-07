@@ -19,8 +19,11 @@ inputs:
     required: true
   save_as:
     description:
-      'The relative file path to save the asset file to. Defaults to
-      `./${asset_name}'
+      'The file path to save the asset file to. Defaults to
+      `__dirname/${asset_name}'
+outputs:
+  location:
+    description: 'The location of the saved asset'
 runs:
   using: 'node12'
   main: 'dist/index.js'

@@ -32,6 +32,7 @@ const run = async (): Promise<void> => {
     // save to filesystem
     fs.writeFileSync(filePath, Buffer.from(file));
     core.info(`saved ${assetName} to file system as ${filePath}`);
+    core.setOutput('location', filePath);
   } catch (error) {
     core.setFailed(error.message);
   }
