@@ -2,6 +2,7 @@ import * as core from '@actions/core';
 import { fetchAssetFromRelease } from './github-service';
 import fs from 'fs';
 import path from 'path';
+import mkdirp from 'mkdirp';
 
 const run = async (): Promise<void> => {
   try {
@@ -15,7 +16,10 @@ const run = async (): Promise<void> => {
     if (!filePath) {
       filePath = path.join(__dirname, assetName);
     } else {
-      filePath = path.join(__dirname, filePath);
+      filePath = path.resolve(__dirname, filePath);
+      const finalDir = filePath.lastIndexOf('/');
+      const dirPath = filePath.slice(0, finalDir);
+      mkdirp.sync(dirPath);
     }
 
     const file = await fetchAssetFromRelease({
