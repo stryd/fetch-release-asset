@@ -458,6 +458,42 @@ module.exports = require("os");
 
 /***/ }),
 
+/***/ 92:
+/***/ (function(module, __unusedexports, __webpack_require__) {
+
+const {dirname} = __webpack_require__(622)
+
+const findMade = (opts, parent, path = undefined) => {
+  // we never want the 'made' return value to be a root directory
+  if (path === parent)
+    return Promise.resolve()
+
+  return opts.statAsync(parent).then(
+    st => st.isDirectory() ? path : undefined, // will fail later
+    er => er.code === 'ENOENT'
+      ? findMade(opts, dirname(parent), parent)
+      : undefined
+  )
+}
+
+const findMadeSync = (opts, parent, path = undefined) => {
+  if (path === parent)
+    return undefined
+
+  try {
+    return opts.statSync(parent).isDirectory() ? path : undefined
+  } catch (er) {
+    return er.code === 'ENOENT'
+      ? findMadeSync(opts, dirname(parent), parent)
+      : undefined
+  }
+}
+
+module.exports = {findMade, findMadeSync}
+
+
+/***/ }),
+
 /***/ 133:
 /***/ (function(module, __unusedexports, __webpack_require__) {
 
@@ -1623,6 +1659,23 @@ exports.enable(load());
 
 /***/ }),
 
+/***/ 336:
+/***/ (function(module, __unusedexports, __webpack_require__) {
+
+const fs = __webpack_require__(747)
+
+const version = process.env.__TESTING_MKDIRP_NODE_VERSION__ || process.version
+const versArr = version.replace(/^v/, '').split('.')
+const hasNative = +versArr[0] > 10 || +versArr[0] === 10 && +versArr[1] >= 12
+
+const useNative = !hasNative ? () => false : opts => opts.mkdir === fs.mkdir
+const useNativeSync = !hasNative ? () => false : opts => opts.mkdirSync === fs.mkdirSync
+
+module.exports = {useNative, useNativeSync}
+
+
+/***/ }),
+
 /***/ 352:
 /***/ (function(module, __unusedexports, __webpack_require__) {
 
@@ -2139,6 +2192,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.fetchAssetFromRelease = exports.fetchAsset = exports.fetchRelease = void 0;
 const axios_1 = __importDefault(__webpack_require__(53));
+const core_1 = __importDefault(__webpack_require__(470));
 /**
  * Fetches release data for a given repo/version combination
  * @param params
@@ -2170,10 +2224,12 @@ exports.fetchAsset = (params) => __awaiter(void 0, void 0, void 0, function* () 
     });
     // retrieve the S3 location of the asset from the redirect headers
     const { location } = fileRedirectRes.headers;
+    core_1.default.debug(`Got asset redirect to ${location}`);
     const fileRes = yield axios_1.default.get(location, {
         headers: { Accept: 'application/octet-stream' },
         responseType: 'arraybuffer'
     });
+    core_1.default.debug(`asset request status: ${fileRes.status}`);
     return fileRes.data;
 });
 /**
@@ -2192,6 +2248,7 @@ exports.fetchAssetFromRelease = (params) => __awaiter(void 0, void 0, void 0, fu
     if (!asset) {
         throw new Error(`Could not find ${assetName} in ${repo}@${version}`);
     }
+    core_1.default.debug(`Fetching asset at ${asset.url}`);
     return yield exports.fetchAsset({ token, url: asset.url });
 });
 //# sourceMappingURL=github-service.js.map
@@ -2239,6 +2296,7 @@ const core = __importStar(__webpack_require__(470));
 const github_service_1 = __webpack_require__(487);
 const fs_1 = __importDefault(__webpack_require__(747));
 const path_1 = __importDefault(__webpack_require__(622));
+const mkdirp_1 = __importDefault(__webpack_require__(626));
 const run = () => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const token = core.getInput('access_token');
@@ -2247,11 +2305,15 @@ const run = () => __awaiter(void 0, void 0, void 0, function* () {
         const assetName = core.getInput('asset_name');
         let filePath = core.getInput('save_as');
         // set default save location
+        core.debug(`current working directory: ${process.cwd()}`);
         if (!filePath) {
             filePath = path_1.default.join(__dirname, assetName);
         }
         else {
-            filePath = path_1.default.join(__dirname, filePath);
+            filePath = path_1.default.resolve(__dirname, filePath);
+            const finalDir = filePath.lastIndexOf('/');
+            const dirPath = filePath.slice(0, finalDir);
+            mkdirp_1.default.sync(dirPath);
         }
         const file = yield github_service_1.fetchAssetFromRelease({
             token,
@@ -2262,6 +2324,7 @@ const run = () => __awaiter(void 0, void 0, void 0, function* () {
         // save to filesystem
         fs_1.default.writeFileSync(filePath, Buffer.from(file));
         core.info(`saved ${assetName} to file system as ${filePath}`);
+        core.setOutput('location', filePath);
     }
     catch (error) {
         core.setFailed(error.message);
@@ -2706,6 +2769,52 @@ module.exports.wrap = wrap;
 
 /***/ }),
 
+/***/ 561:
+/***/ (function(module, __unusedexports, __webpack_require__) {
+
+const {dirname} = __webpack_require__(622)
+const {findMade, findMadeSync} = __webpack_require__(92)
+const {mkdirpManual, mkdirpManualSync} = __webpack_require__(806)
+
+const mkdirpNative = (path, opts) => {
+  opts.recursive = true
+  const parent = dirname(path)
+  if (parent === path)
+    return opts.mkdirAsync(path, opts)
+
+  return findMade(opts, path).then(made =>
+    opts.mkdirAsync(path, opts).then(() => made)
+    .catch(er => {
+      if (er.code === 'ENOENT')
+        return mkdirpManual(path, opts)
+      else
+        throw er
+    }))
+}
+
+const mkdirpNativeSync = (path, opts) => {
+  opts.recursive = true
+  const parent = dirname(path)
+  if (parent === path)
+    return opts.mkdirSync(path, opts)
+
+  const made = findMadeSync(opts, path)
+  try {
+    opts.mkdirSync(path, opts)
+    return made
+  } catch (er) {
+    if (er.code === 'ENOENT')
+      return mkdirpManualSync(path, opts)
+    else
+      throw er
+  }
+}
+
+module.exports = {mkdirpNative, mkdirpNativeSync}
+
+
+/***/ }),
+
 /***/ 564:
 /***/ (function(module, __unusedexports, __webpack_require__) {
 
@@ -2735,6 +2844,36 @@ module.exports = function settle(resolve, reject, response) {
     ));
   }
 };
+
+
+/***/ }),
+
+/***/ 582:
+/***/ (function(module, __unusedexports, __webpack_require__) {
+
+const { promisify } = __webpack_require__(669)
+const fs = __webpack_require__(747)
+const optsArg = opts => {
+  if (!opts)
+    opts = { mode: 0o777, fs }
+  else if (typeof opts === 'object')
+    opts = { mode: 0o777, fs, ...opts }
+  else if (typeof opts === 'number')
+    opts = { mode: opts, fs }
+  else if (typeof opts === 'string')
+    opts = { mode: parseInt(opts, 8), fs }
+  else
+    throw new TypeError('invalid options argument')
+
+  opts.mkdir = opts.mkdir || opts.fs.mkdir || fs.mkdir
+  opts.mkdirAsync = promisify(opts.mkdir)
+  opts.stat = opts.stat || opts.fs.stat || fs.stat
+  opts.statAsync = promisify(opts.stat)
+  opts.statSync = opts.statSync || opts.fs.statSync || fs.statSync
+  opts.mkdirSync = opts.mkdirSync || opts.fs.mkdirSync || fs.mkdirSync
+  return opts
+}
+module.exports = optsArg
 
 
 /***/ }),
@@ -2800,6 +2939,44 @@ module.exports = require("http");
 /***/ (function(module) {
 
 module.exports = require("path");
+
+/***/ }),
+
+/***/ 626:
+/***/ (function(module, __unusedexports, __webpack_require__) {
+
+const optsArg = __webpack_require__(582)
+const pathArg = __webpack_require__(870)
+
+const {mkdirpNative, mkdirpNativeSync} = __webpack_require__(561)
+const {mkdirpManual, mkdirpManualSync} = __webpack_require__(806)
+const {useNative, useNativeSync} = __webpack_require__(336)
+
+
+const mkdirp = (path, opts) => {
+  path = pathArg(path)
+  opts = optsArg(opts)
+  return useNative(opts)
+    ? mkdirpNative(path, opts)
+    : mkdirpManual(path, opts)
+}
+
+const mkdirpSync = (path, opts) => {
+  path = pathArg(path)
+  opts = optsArg(opts)
+  return useNativeSync(opts)
+    ? mkdirpNativeSync(path, opts)
+    : mkdirpManualSync(path, opts)
+}
+
+mkdirp.sync = mkdirpSync
+mkdirp.native = (path, opts) => mkdirpNative(pathArg(path), optsArg(opts))
+mkdirp.manual = (path, opts) => mkdirpManual(pathArg(path), optsArg(opts))
+mkdirp.nativeSync = (path, opts) => mkdirpNativeSync(pathArg(path), optsArg(opts))
+mkdirp.manualSync = (path, opts) => mkdirpManualSync(pathArg(path), optsArg(opts))
+
+module.exports = mkdirp
+
 
 /***/ }),
 
@@ -3541,6 +3718,77 @@ module.exports = Axios;
 
 /***/ }),
 
+/***/ 806:
+/***/ (function(module, __unusedexports, __webpack_require__) {
+
+const {dirname} = __webpack_require__(622)
+
+const mkdirpManual = (path, opts, made) => {
+  opts.recursive = false
+  const parent = dirname(path)
+  if (parent === path) {
+    return opts.mkdirAsync(path, opts).catch(er => {
+      // swallowed by recursive implementation on posix systems
+      // any other error is a failure
+      if (er.code !== 'EISDIR')
+        throw er
+    })
+  }
+
+  return opts.mkdirAsync(path, opts).then(() => made || path, er => {
+    if (er.code === 'ENOENT')
+      return mkdirpManual(parent, opts)
+        .then(made => mkdirpManual(path, opts, made))
+    if (er.code !== 'EEXIST' && er.code !== 'EROFS')
+      throw er
+    return opts.statAsync(path).then(st => {
+      if (st.isDirectory())
+        return made
+      else
+        throw er
+    }, () => { throw er })
+  })
+}
+
+const mkdirpManualSync = (path, opts, made) => {
+  const parent = dirname(path)
+  opts.recursive = false
+
+  if (parent === path) {
+    try {
+      return opts.mkdirSync(path, opts)
+    } catch (er) {
+      // swallowed by recursive implementation on posix systems
+      // any other error is a failure
+      if (er.code !== 'EISDIR')
+        throw er
+      else
+        return
+    }
+  }
+
+  try {
+    opts.mkdirSync(path, opts)
+    return made || path
+  } catch (er) {
+    if (er.code === 'ENOENT')
+      return mkdirpManualSync(path, opts, mkdirpManualSync(parent, opts, made))
+    if (er.code !== 'EEXIST' && er.code !== 'EROFS')
+      throw er
+    try {
+      if (!opts.statSync(path).isDirectory())
+        throw er
+    } catch (_) {
+      throw er
+    }
+  }
+}
+
+module.exports = {mkdirpManual, mkdirpManualSync}
+
+
+/***/ }),
+
 /***/ 825:
 /***/ (function(module, __unusedexports, __webpack_require__) {
 
@@ -3721,6 +3969,42 @@ module.exports = (
 /***/ (function(module) {
 
 module.exports = require("tty");
+
+/***/ }),
+
+/***/ 870:
+/***/ (function(module, __unusedexports, __webpack_require__) {
+
+const platform = process.env.__TESTING_MKDIRP_PLATFORM__ || process.platform
+const { resolve, parse } = __webpack_require__(622)
+const pathArg = path => {
+  if (/\0/.test(path)) {
+    // simulate same failure that node raises
+    throw Object.assign(
+      new TypeError('path must be a string without null bytes'),
+      {
+        path,
+        code: 'ERR_INVALID_ARG_VALUE',
+      }
+    )
+  }
+
+  path = resolve(path)
+  if (platform === 'win32') {
+    const badWinChars = /[*|"<>?:]/
+    const {root} = parse(path)
+    if (badWinChars.test(path.substr(root.length))) {
+      throw Object.assign(new Error('Illegal characters in path.'), {
+        path,
+        code: 'EINVAL',
+      })
+    }
+  }
+
+  return path
+}
+module.exports = pathArg
+
 
 /***/ }),
 
