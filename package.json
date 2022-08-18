@@ -26,7 +26,7 @@
     "typescript": "^3.9.6"
   },
   "dependencies": {
-    "@actions/core": "^1.2.4",
+    "@actions/core": "^1.9.1",
     "axios": "^0.19.2",
     "mkdirp": "^1.0.4"
   }
